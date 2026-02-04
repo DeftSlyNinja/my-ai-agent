@@ -8,11 +8,11 @@ if api_key == None:
     raise Exception("Gemini api key not found")
 
 client = genai.Client(api_key=api_key)
-print(client.models.generate_content(model='gemini-2.5-flash', contents="Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum.").text)
+response = client.models.generate_content(model='gemini-2.5-flash', contents="Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum.")
+if response.usage_metadata == None:
+    raise RuntimeError("No metadata recieved")
+else:
+    print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}\nResponse tokens: {response.usage_metadata.candidates_token_count}")
+print("Response:")
+print(response.text)
 
-def main():
-    print("Hello from my-ai-agent!")
-
-
-if __name__ == "__main__":
-    main()
