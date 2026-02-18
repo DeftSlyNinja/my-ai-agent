@@ -5,6 +5,7 @@ from google.genai import types
 from dotenv import load_dotenv
 from prompts import system_prompt
 from functions.call_functions import available_functions
+
 def main():
     # Load environment / Get API key
 
