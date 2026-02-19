@@ -4,7 +4,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from prompts import system_prompt
-from functions.call_functions import available_functions
+from functions.call_functions import available_functions, call_function
 
 def main():
     # Load environment / Get API key
@@ -40,19 +40,32 @@ def generate_content(client, messages, verbose):
         )
     )
 
+    function_results = []
+
     # Response Logic
 
     if response.usage_metadata == None:
         raise RuntimeError("No metadata recieved")
     if response.function_calls != None:
         for function in response.function_calls:
-            print(f"Calling function: {function.name}({function.args})")
-    else:
-        if verbose:
-            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-            print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-        print(f"Response:")
-        print(response.text)
+            # print(f"Calling function: {function.name}({function.args})")
+            function_call_results = call_function(function, verbose)
+            if function_call_results.parts == None:
+                raise Exception(f"Error: {function.name}.parts is empty")
+            if function_call_results.parts[0].function_response == None:
+                raise Exception(f"Error: {function.name}.parts[0].function_response returned None")
+            if function_call_results.parts[0].function_response.response == None:
+                raise Exception(f"Error: {function.name}.parts[0].function_response.response returned None")
+            function_results.append(function_call_results.parts[0])
+            if verbose:
+                print(f"-> {function_call_results.parts[0].function_response.response}")
+            
+    
+    if verbose:
+        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+        print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    # print(f"Response:")
+    # print(response.text)
 
 if __name__ == "__main__":
     main()
