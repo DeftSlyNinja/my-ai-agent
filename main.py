@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -25,9 +26,19 @@ def main():
 
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
     client = genai.Client(api_key=api_key)
+    MAX_ITERS = 20
     if args.verbose:
         print(f"User prompt: {args.user_prompt}\n")
-    generate_content(client, messages, args.verbose)
+    for _ in range(MAX_ITERS):
+        text = generate_content(client, messages, args.verbose)
+        if text is not None:
+            print("Final response:")
+            print(text)
+            return
+    print(f"Maximum iterations ({MAX_ITERS}) reached")
+    sys.exit(1)
+        
+        
     
 
 def generate_content(client, messages, verbose):
@@ -40,15 +51,32 @@ def generate_content(client, messages, verbose):
         )
     )
 
-    function_results = []
+    
 
     # Response Logic
 
+    ## Raise error if no metadata is present
+
     if response.usage_metadata == None:
         raise RuntimeError("No metadata recieved")
+    
+    ## Adds candidates to messages list if there are any
+
+    if response.candidates:
+        for candidate in response.candidates:
+            if candidate.content:
+                messages.append(candidate.content)
+
+    ## Returns the response if no tools are used
+
+    if not response.function_calls:
+        return response.text
+    
+    ## Run tools and raise errors if anything is empty
+
+    function_results = []
     if response.function_calls != None:
         for function in response.function_calls:
-            # print(f"Calling function: {function.name}({function.args})")
             function_call_results = call_function(function, verbose)
             if function_call_results.parts == None:
                 raise Exception(f"Error: {function.name}.parts is empty")
@@ -59,13 +87,12 @@ def generate_content(client, messages, verbose):
             function_results.append(function_call_results.parts[0])
             if verbose:
                 print(f"-> {function_call_results.parts[0].function_response.response}")
-            
     
     if verbose:
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-    # print(f"Response:")
-    # print(response.text)
+
+    messages.append(types.Content(role="user", parts=function_results))
 
 if __name__ == "__main__":
     main()
